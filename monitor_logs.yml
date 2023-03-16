@@ -1,0 +1,49 @@
+---
+- name: Configure syslog
+  hosts: all
+  become: true
+
+
+  vars:
+    log_directory: /var/log/myapp
+    log_file: myapp.log
+    remote_syslog_server: 192.168.56.119
+  tasks:
+
+    - name: Install syslog
+      apt:
+        name: rsyslog
+        state: present
+
+    - name: Start service rsyslog
+      ansible.builtin.service:
+        name: rsyslog
+        state: started
+
+    - name: Enable service rsyslog to start on boot
+      ansible.builtin.service:
+        name: rsyslog
+        enabled: yes
+
+    - name: Create log directory
+      file:
+        path: /var/log/myapp
+        state: directory
+        mode: 0755
+
+    - name: Configure rsyslog
+      copy:
+        src: rsyslog.conf
+        dest: /etc/rsyslog.conf
+      notify: Restart rsyslog
+
+    - name: Create log file
+      file:
+        path: /var/log/myapp/myapp.log
+        state: touch
+        mode: 0644
+
+#    - name: Restart rsyslog
+#      service:
+#        name: rsyslog
+#        state: restarted
