@@ -1,49 +1,41 @@
 ---
-- name: Configure syslog
-  hosts: all
+- name: Install monitoring and forwarding tools
+  hosts: monitoring
   become: true
-
-
-  vars:
-    log_directory: /var/log/myapp
-    log_file: myapp.log
-    remote_syslog_server: 192.168.56.119
   tasks:
+    - name: Install logrotate
+      apt:
+        name: logrotate
+        state: present
 
-    - name: Install syslog
+    - name: Configure logrotate to create test log file
+      lineinfile:
+        path: /etc/logrotate.conf
+        regexp: '^\/var\/log\/test\.log'
+        line: '/var/log/test.log { create 0644 root root }'
+        state: present
+
+    - name: Create test log file
+      copy:
+        content: 'This is a test log message    \n'
+        dest: /var/log/test.log
+        mode: '0644'
+
+    - name: Install rsyslog
       apt:
         name: rsyslog
         state: present
 
-    - name: Start service rsyslog
-      ansible.builtin.service:
+    - name: Configure rsyslog to forward logs to another Ubuntu system
+      lineinfile:
+        path: /etc/rsyslog.conf
+        regexp: '^.*\*\.\*'
+        line: '. @@{{ destination_ip }}'
+        state: present
+      vars:
+        destination_ip: 192.168.56.129
+
+    - name: Restart rsyslog
+      service:
         name: rsyslog
-        state: started
-
-    - name: Enable service rsyslog to start on boot
-      ansible.builtin.service:
-        name: rsyslog
-        enabled: yes
-
-    - name: Create log directory
-      file:
-        path: /var/log/myapp
-        state: directory
-        mode: 0755
-
-    - name: Configure rsyslog
-      copy:
-        src: rsyslog.conf
-        dest: /etc/rsyslog.conf
-      notify: Restart rsyslog
-
-    - name: Create log file
-      file:
-        path: /var/log/myapp/myapp.log
-        state: touch
-        mode: 0644
-
-#    - name: Restart rsyslog
-#      service:
-#        name: rsyslog
-#        state: restarted
+        state: restarted
